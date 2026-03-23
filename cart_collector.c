@@ -21,6 +21,11 @@ static int line_size(const DequeStatic *line)
     return line->tail_index - line->head_index + 1;
 }
 
+static int line_free(const DequeStatic *line)
+{
+    return line->capacity - (line->tail_index - line->head_index + 1);
+}
+
 static int line_get_by_offset(const DequeStatic *line, int offset_from_head)
 {
     int idx = line->head_index + offset_from_head;
@@ -69,7 +74,6 @@ static int line_find_best_side(const DequeStatic *line, int cart_id, int *side, 
     return 1;
 }
 
-// Возвращает индекс линии, в которой есть хотя бы need_free свободных мест, иначе -1
 static int pick_buffer_line(DequeStatic *lines, int lines_count, int except_line, int need_free)
 {
     int best = -1;
@@ -120,6 +124,7 @@ int main(int argc, char **argv)
     }
 
     FILE *f = fopen(argv[1], "r");
+    // FILE *f = fopen("input.txt", "r");
     if (!f)
     {
         perror("input file open error");
@@ -213,123 +218,109 @@ int main(int argc, char **argv)
     OpsCounters ops = {0, 0, 0, 0};
     StackDynamic train;
     initStack(&train);
-
-    for (int t = 0; t < target_count; t++)
+    int iter_already[target_count];
+    for(int i=0;i<target_count;i++)
     {
-        int need = targets[t];
-
-        int best_line = -1;
-        int best_side = 0;
-        int best_blockers = 0;
-
-        // Поиск линии с наименьшим количеством блокирующих для текущего target
-        for (int i = 0; i < lines_count; i++)
+        iter_already[i] = -1;
+    }
+    for (int iter = 0; iter < target_count; iter++)
+    {
+        int best_tagret = -1;
+        int best_side = -1;
+        int best_blockers = -1;
+        int from_line = -1;
+        for (int t = 0; t < target_count; t++)
         {
-            int side, blockers;
-            if (line_find_best_side(&lines[i], need, &side, &blockers))
+            int target = targets[t];
+            int n = 0;
+            for (; n < target_count; n++)
             {
-                if (best_line < 0 || blockers < best_blockers)
+                if (target == iter_already[n])
                 {
-                    best_line = i;
-                    best_side = side;
-                    best_blockers = blockers;
+                    break;
+                }
+            }
+            if (n < target_count)
+            {
+                continue;
+            }
+            for (int i = 0; i < lines_count; i++)
+            {
+                int side, blockers;
+                if (line_find_best_side(&lines[i], target, &side, &blockers))
+                {
+                    if (best_tagret < 0 || best_blockers > blockers)
+                    {
+                        best_blockers = blockers;
+                        best_side = side;
+                        best_tagret = target;
+                        from_line = i;
+                    }
                 }
             }
         }
+        iter_already[iter] = best_tagret;
 
-        if (best_blockers > 0)
+        if (best_blockers == 0)
         {
-            // Сначала чекнем, можно ли найти место для каждого
-            int *buffer_lines = (int *)malloc(best_blockers * sizeof(int));
-            if (!buffer_lines)
+            best_side == 1 ? popDequeBack(&lines[from_line]) : popDequeFront(&lines[from_line]);
+            ops.line_remove++;
+            pushStack(&train, best_tagret);
+            ops.train_add++;
+            continue;
+        }
+        while (best_blockers > 0)
+        {
+            int best_free_line = 0;
+            int to_line = -1;
+            for (int l = 0; l < lines_count; l++)
             {
-                fprintf(stderr, "Memory allocation failed\n");
-                goto cleanup;
-            }
-
-            bool can_move = true;
-            for (int i = 0; i < best_blockers; i++)
-            {
-                int buf = pick_buffer_line(lines, lines_count, best_line, 1);
-                if (buf == -1)
+                int fr = line_free(&lines[l]);
+                if (fr > best_free_line)
                 {
-                    can_move = false;
-                    break;
+                    best_free_line = fr;
+                    to_line = l;
                 }
-                buffer_lines[i] = buf;
             }
 
-            if (!can_move)
+            if (to_line == -1 || best_free_line == 0)
             {
-                free(buffer_lines);
-                continue; // нет места. скип
+                break;
             }
-
-            // перемещаем блокирующие, используя выбранные линии
-            for (int i = 0; i < best_blockers; i++)
+            int min = best_free_line >= best_blockers ? best_blockers : best_free_line;
+            best_blockers -= min;
+            for(int _ = 0; _ < min; _++)
             {
-                int blocker;
-                if (best_side == 0)
+                int value = best_side == 0 ? popDequeBack(&lines[from_line]) : popDequeFront(&lines[from_line]);
+                ops.line_remove++;
+                if(to_line == from_line)
                 {
-                    blocker = deque_static_pop_front(&lines[best_line]);
+                    best_side  == 0 ? pushDequeFront(&lines[to_line], value) : pushDequeBack(&lines[to_line], value);
                 }
                 else
                 {
-                    blocker = deque_static_pop_back(&lines[best_line]);
-                }
-                if (blocker < 0)
-                {
-                    fprintf(stderr, "Error: pop from line %d failed\n", best_line + 1);
-                    free(buffer_lines);
-                    goto cleanup;
-                }
-                ops.line_remove++;
-
-                int buf_line = buffer_lines[i];
-                if (!deque_static_push_back(&lines[buf_line], blocker))
-                {
-                    fprintf(stderr, "Error: push to buffer line %d failed (no space)\n", buf_line + 1);
-                    free(buffer_lines);
-                    goto cleanup;
+                    pushDequeFront(&lines[to_line], value);
                 }
                 ops.line_add++;
-                print_move_line_to_line(blocker, best_line, best_side, buf_line, 1, verbose);
             }
-            free(buffer_lines);
         }
 
-        // Извлекаем вагон
-        int picked;
-        if (best_side == 0)
+        if(best_tagret == -1)
         {
-            picked = deque_static_pop_front(&lines[best_line]);
+            continue;
         }
-        else
-        {
-            picked = deque_static_pop_back(&lines[best_line]);
-        }
-        if (picked < 0)
-        {
-            fprintf(stderr, "Error: pop target cart from line %d failed\n", best_line + 1);
-            goto cleanup;
-        }
+        best_side == 0 ? popDequeBack(&lines[from_line]) : popDequeFront(&lines[from_line]);
         ops.line_remove++;
-
-        if (!pushDynamicStack(&train, picked))
-        {
-            fprintf(stderr, "Error: push to train failed (memory?)\n");
-            goto cleanup;
-        }
+        pushStack(&train, best_target);
         ops.train_add++;
-        print_move_line_to_train(picked, best_line, best_side, verbose);
     }
+
 
     printf("LINE_ADD: %d\n", ops.line_add);
     printf("LINE_REMOVE: %d\n", ops.line_remove);
     printf("TRAIN_ADD: %d\n", ops.train_add);
     printf("TRAIN_REMOVE: %d\n", ops.train_remove);
     printf("TOTAL: %d\n", ops.line_add + ops.line_remove + ops.train_add + ops.train_remove);
-
 cleanup:
     for (int i = 0; i < lines_count; i++)
     {
