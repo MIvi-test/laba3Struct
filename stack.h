@@ -14,7 +14,6 @@
 #define peekStack(x) _Generic((x), StackStatic*: peekStaticStack, StackDynamic*: peekDynamicStack)(x)
 #define destroyStack(x) _Generic((x), StackStatic*: destroyStaticStack, StackDynamic*: destroyDynamicStack)(x)
 #define sizeStack(x) _Generic((x), StackStatic*: sizeStaticStack, StackDynamic*: sizeDynamicStack)(x)
-// #define searchStack(x) _Generic((x),StackStatic*: searchStaticStack, StackDynamic*: searchDynamicStack )
 
 #define MAX_STATIC_STACK_SIZE 1000
 

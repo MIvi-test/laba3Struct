@@ -1,8 +1,5 @@
 #include "deq_and_stack.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdbool.h>
+#include "deter.h"
 
 typedef struct OpsCounters
 {
@@ -63,12 +60,12 @@ static int line_find_best_side(const DequeStatic *line, int cart_id, int *side, 
 
     if (from_head >= 0 && (from_tail < 0 || from_head <= from_tail))
     {
-        *side = 0; // S
+        *side = 0; // S (head)
         *blockers = from_head;
     }
     else
     {
-        *side = 1; // E
+        *side = 1; // E (tail)
         *blockers = from_tail;
     }
     return 1;
@@ -124,7 +121,6 @@ int main(int argc, char **argv)
     }
 
     FILE *f = fopen(argv[1], "r");
-    // FILE *f = fopen("input.txt", "r");
     if (!f)
     {
         perror("input file open error");
@@ -219,16 +215,19 @@ int main(int argc, char **argv)
     StackDynamic train;
     initStack(&train);
     int iter_already[target_count];
-    for(int i=0;i<target_count;i++)
+    for (int i = 0; i < target_count; i++)
     {
         iter_already[i] = -1;
     }
+
     for (int iter = 0; iter < target_count; iter++)
     {
         int best_tagret = -1;
         int best_side = -1;
         int best_blockers = -1;
         int from_line = -1;
+
+        
         for (int t = 0; t < target_count; t++)
         {
             int target = targets[t];
@@ -236,20 +235,17 @@ int main(int argc, char **argv)
             for (; n < target_count; n++)
             {
                 if (target == iter_already[n])
-                {
                     break;
-                }
             }
             if (n < target_count)
-            {
-                continue;
-            }
+                continue; 
+
             for (int i = 0; i < lines_count; i++)
             {
                 int side, blockers;
                 if (line_find_best_side(&lines[i], target, &side, &blockers))
                 {
-                    if (best_tagret < 0 || best_blockers > blockers)
+                    if (best_tagret < 0 || blockers < best_blockers)
                     {
                         best_blockers = blockers;
                         best_side = side;
@@ -259,83 +255,86 @@ int main(int argc, char **argv)
                 }
             }
         }
+
+        if (best_tagret == -1)
+        {
+            fprintf(stderr, "Error: cannot reach target %d (iteration %d)\n", targets[iter], iter);
+            break;
+        }
+
         iter_already[iter] = best_tagret;
 
+        
         if (best_blockers == 0)
         {
             print_move_line_to_train(best_tagret, from_line, best_side, verbose);
-            best_side == 1 ? popDequeBack(&lines[from_line]) : popDequeFront(&lines[from_line]);
+            if (best_side == 0)
+                popDequeFront(&lines[from_line]);
+            else
+                popDequeBack(&lines[from_line]);
             ops.line_remove++;
             pushStack(&train, best_tagret);
             ops.train_add++;
             continue;
         }
+
         while (best_blockers > 0)
         {
-            int best_free_line = 0;
             int to_line = -1;
+            int best_free = -1;
             for (int l = 0; l < lines_count; l++)
             {
+                if (l == from_line)
+                    continue;
                 int fr = line_free(&lines[l]);
-                if (fr > best_free_line)
+                if (fr > best_free)
                 {
-                    best_free_line = fr;
+                    best_free = fr;
                     to_line = l;
                 }
             }
 
-            if (to_line == -1 || best_free_line == 0)
-            {
+            if (to_line == -1 || best_free == 0)
                 break;
-            }
-            int min = best_free_line >= best_blockers ? best_blockers : best_free_line;
-            best_blockers -= min;
-            for(int _ = 0; _ < min; _++)
+
+            int move = (best_free >= best_blockers) ? best_blockers : best_free;
+            best_blockers -= move;
+
+            for (int _ = 0; _ < move; _++)
             {
-                int value = best_side == 0 ? popDequeBack(&lines[from_line]) : popDequeFront(&lines[from_line]);
-                ops.line_remove++;
-                int to_side;
-                if (to_line == from_line)
-                {
-                    if (best_side == 0)
-                    {
-                        pushDequeFront(&lines[to_line], value);
-                        to_side = 0;
-                    }
-                    else
-                    {
-                        pushDequeBack(&lines[to_line], value);
-                        to_side = 1;
-                    }
-                }
+        
+                int value;
+                if (best_side == 0)   
+                    value = popDequeFront(&lines[from_line]);
                 else
-                {
-                    pushDequeFront(&lines[to_line], value);
-                    to_side = 0;
-                }
-                print_move_line_to_line(value, from_line, best_side, to_line, to_side, verbose);
+                    value = popDequeBack(&lines[from_line]);
+                ops.line_remove++;
+
+                
+                pushDequeFront(&lines[to_line], value);
+                print_move_line_to_line(value, from_line, best_side, to_line, 0, verbose);
                 ops.line_add++;
             }
         }
 
-        if(best_tagret == -1)
-        {
-            continue;
-        }
+        
         print_move_line_to_train(best_tagret, from_line, best_side, verbose);
-        best_side == 0 ? popDequeBack(&lines[from_line]) : popDequeFront(&lines[from_line]);
+        if (best_side == 0)
+            popDequeFront(&lines[from_line]);
+        else
+            popDequeBack(&lines[from_line]);
         ops.line_remove++;
         pushStack(&train, best_tagret);
         ops.train_add++;
     }
-
 
     printf("LINE_ADD: %d\n", ops.line_add);
     printf("LINE_REMOVE: %d\n", ops.line_remove);
     printf("TRAIN_ADD: %d\n", ops.train_add);
     printf("TRAIN_REMOVE: %d\n", ops.train_remove);
     printf("TOTAL: %d\n", ops.line_add + ops.line_remove + ops.train_add + ops.train_remove);
-cleanup:
+
+    
     for (int i = 0; i < lines_count; i++)
     {
         free(lines[i].massive_static_deque);
@@ -344,5 +343,6 @@ cleanup:
     free(lines);
     free(targets);
     destroyStack(&train);
+
     return 0;
 }
