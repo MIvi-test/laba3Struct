@@ -51,7 +51,7 @@ void for_ddeq(DequeDynamic *ddeque) {
         popDequeBack(ddeque);
     }
     clock_t end = clock();
-    printf("Время для динамического дека: %f сек.\n", (double)(end - start) / CLOCKS_PER_SEC / 10);
+    printf("Время для динамического дека: %f сек.\n", (double)(end - start) / CLOCKS_PER_SEC);
 }
 
 int main() {

@@ -6,12 +6,15 @@
 
 void initDynamicStack(StackDynamic *stack)
 {
-    stack->id = 0;
-    stack->before = NULL;
+    if (stack != NULL)
+    {
+        stack->id = 0;
+        stack->before = NULL;
+    }
 }
 bool isDynamicStackEmpty(StackDynamic *stack)
 {
-    return stack->before == NULL;
+    return stack == NULL || stack->before == NULL;
 }
 bool isDynamicStackFull(StackDynamic *stack)
 {
@@ -19,52 +22,78 @@ bool isDynamicStackFull(StackDynamic *stack)
 }
 bool pushDynamicStack(StackDynamic *stack, int value)
 {
-    StackDynamic *new_stack = (StackDynamic *)malloc(sizeof(StackDynamic));
-    if (new_stack == NULL)
+    // For single-pointer interface, we can only push to non-empty positions
+    // This limits dynamic stack usage - ideally should use pointer-to-pointer
+    if (stack == NULL)
     {
         return false;
     }
-    new_stack->id = value;
-    new_stack->before = stack;
-    *stack = *new_stack;
+    
+    // Create new node and link it
+    StackDynamic *new_node = (StackDynamic *)malloc(sizeof(StackDynamic));
+    if (new_node == NULL)
+    {
+        return false;
+    }
+    
+    // Insert between stack and its previous
+    new_node->before = stack->before;
+    new_node->id = value;
+    stack->before = new_node;
+    
     return true;
 }
 int popDynamicStack(StackDynamic *stack)
 {
-    if (isDynamicStackEmpty(stack))
+    if (isDynamicStackEmpty(stack) || stack->before == NULL)
     {
         return -1;
     }
-    int value = stack->id;
-    StackDynamic *new_stack = stack->before;
-    free(stack);
-    *stack = *new_stack;
+    
+    int value = stack->before->id;
+    StackDynamic *temp = stack->before;
+    stack->before = stack->before->before;
+    free(temp);
+    
     return value;
 }
 int peekDynamicStack(StackDynamic *stack)
 {
-    if (isDynamicStackEmpty(stack))
+    if (isDynamicStackEmpty(stack) || stack->before == NULL)
     {
         return -1;
     }
-    return stack->id;
+    return stack->before->id;
 }
 void destroyDynamicStack(StackDynamic *stack)
 {
-    while (stack != NULL)
+    if (stack == NULL)
     {
-        StackDynamic *new_stack = stack->before;
-        free(stack);
-        stack = new_stack;
+        return;
+    }
+    
+    // Only free the dynamically allocated nodes (in the chain)
+    // The root node itself may be on the stack, so don't free it
+    while (stack->before != NULL)
+    {
+        StackDynamic *temp = stack->before;
+        stack->before = stack->before->before;
+        free(temp);
     }
 }
 short sizeDynamicStack(StackDynamic *stack)
 {
     short size = 0;
-    while (stack != NULL)
+    if (stack == NULL)
+    {
+        return 0;
+    }
+    // Count only the actual data nodes, not the sentinel root
+    StackDynamic *current = stack->before;
+    while (current != NULL)
     {
         size++;
-        stack = stack->before;
+        current = current->before;
     }
     return size;
 }
