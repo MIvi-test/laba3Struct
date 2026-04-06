@@ -6,15 +6,15 @@
 #include <string.h>
 
 
-#define initStack(x) _Generic((x), StackStatic*: initStaticStack, StackDynamic*: initDynamicStack)
-#define isStackEmpty(x) _Generic((x), StackStatic*: isStaticStackEmpty, StackDynamic*: isDynamicStackEmpty)
-#define isStackFull(x) _Generic((x), StackStatic*: isStaticStackFull, StackDynamic*: isDynamicStackFull)
-#define pushStack(x,value) _Generic((x), StackStatic*: pushStaticStack, StackDynamic*: pushDynamicStack)
-#define popStack(x) _Generic((x), StackStatic*: popStaticStack, StackDynamic*: popDynamicStack)
-#define peekStack(x) _Generic((x), StackStatic*: peekStaticStack, StackDynamic*: peekDynamicStack)
-#define destroyStack(x) _Generic((x), StackStatic*: destroyStaticStack, StackDynamic*: destroyDynamicStack)
-#define sizeStack(x) _Generic((x), StackStatic*: sizeStaticStack, StackDynamic*: sizeDynamicStack)
-#define searchStack(x) _Generic((x),StackStatic*: searchStaticStack, StackDynamic*: searchDynamicStack )
+#define initStack(x) _Generic((x), StackStatic*: initStaticStack, StackDynamic*: initDynamicStack)(x)
+#define isStackEmpty(x) _Generic((x), StackStatic*: isStaticStackEmpty, StackDynamic*: isDynamicStackEmpty)(x)
+#define isStackFull(x) _Generic((x), StackStatic*: isStaticStackFull, StackDynamic*: isDynamicStackFull)(x)
+#define pushStack(x,value) _Generic((x), StackStatic*: pushStaticStack, StackDynamic*: pushDynamicStack)(x, value)
+#define popStack(x) _Generic((x), StackStatic*: popStaticStack, StackDynamic*: popDynamicStack)(x)
+#define peekStack(x) _Generic((x), StackStatic*: peekStaticStack, StackDynamic*: peekDynamicStack)(x)
+#define destroyStack(x) _Generic((x), StackStatic*: destroyStaticStack, StackDynamic*: destroyDynamicStack)(x)
+#define sizeStack(x) _Generic((x), StackStatic*: sizeStaticStack, StackDynamic*: sizeDynamicStack)(x)
+// #define searchStack(x) _Generic((x),StackStatic*: searchStaticStack, StackDynamic*: searchDynamicStack )
 
 #define MAX_STATIC_STACK_SIZE 1000
 
@@ -50,7 +50,7 @@ int popDynamicStack(StackDynamic *stack);
 int peekDynamicStack(StackDynamic *stack);
 void destroyDynamicStack(StackDynamic *stack);
 short sizeDynamicStack(StackDynamic *stack);
-void searchDynamicStack(StackStatic *stack);
+// void searchDynamicStack(StackStatic *stack);
 
 #include "static_stack.c"
 #include "dynamic_stack.c"

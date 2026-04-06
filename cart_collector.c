@@ -263,6 +263,7 @@ int main(int argc, char **argv)
 
         if (best_blockers == 0)
         {
+            print_move_line_to_train(best_tagret, from_line, best_side, verbose);
             best_side == 1 ? popDequeBack(&lines[from_line]) : popDequeFront(&lines[from_line]);
             ops.line_remove++;
             pushStack(&train, best_tagret);
@@ -293,14 +294,26 @@ int main(int argc, char **argv)
             {
                 int value = best_side == 0 ? popDequeBack(&lines[from_line]) : popDequeFront(&lines[from_line]);
                 ops.line_remove++;
-                if(to_line == from_line)
+                int to_side;
+                if (to_line == from_line)
                 {
-                    best_side  == 0 ? pushDequeFront(&lines[to_line], value) : pushDequeBack(&lines[to_line], value);
+                    if (best_side == 0)
+                    {
+                        pushDequeFront(&lines[to_line], value);
+                        to_side = 0;
+                    }
+                    else
+                    {
+                        pushDequeBack(&lines[to_line], value);
+                        to_side = 1;
+                    }
                 }
                 else
                 {
                     pushDequeFront(&lines[to_line], value);
+                    to_side = 0;
                 }
+                print_move_line_to_line(value, from_line, best_side, to_line, to_side, verbose);
                 ops.line_add++;
             }
         }
@@ -309,9 +322,10 @@ int main(int argc, char **argv)
         {
             continue;
         }
+        print_move_line_to_train(best_tagret, from_line, best_side, verbose);
         best_side == 0 ? popDequeBack(&lines[from_line]) : popDequeFront(&lines[from_line]);
         ops.line_remove++;
-        pushStack(&train, best_target);
+        pushStack(&train, best_tagret);
         ops.train_add++;
     }
 
